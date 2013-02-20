@@ -64,7 +64,6 @@ if %backup_interval% GTR 0 (
 
 :: Go back to the previous directory.
 popd
-pause
 goto :EOF
 
 :backup
