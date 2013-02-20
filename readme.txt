@@ -1,5 +1,5 @@
 DO Backup
-Description: Creates backups of Darkout save data. it can be set to create backups at an interval. If set to do that, just leave the script running while you play the game.
+Description: Creates backups of Darkout save data. It can be set to create backups at an interval. If set to do that, just leave the script running while you play the game.
 This should work on Windows XP and above.
 
 In the following, references to the "script file" or just the "script" are relating to "dobackup.cmd".
@@ -23,3 +23,12 @@ In the following, references to the "script file" or just the "script" are relat
 
 - Low Priority Mode
 	Running in low priority gives the game and other software that's running, more priority for system usage. Use it if the backups slow the game down. If you would prefer to run backups in low priority mode, run "low-priority.cmd" instead of "dobackup.cmd".
+
+- What to backup
+	You can set in the script, what you would like to backup. It can be one of or any combination of the following; Worlds, Characters, Config. More help on this is provided in the script file.
+
+- Where Do The Backups Get Saved?
+	They are saved in a sub-directory named "backups" in the directory this file is in.
+
+- KNOWN ISSUES
+	* The script does not clean out old files from the backups. If you have removed some worlds/characters, or if you have change from using compression or not, some old backups may continue to exists. You can easily just delete the backups directory any time you wish to clean it out. Then just run the script again to create a new set of backups.
