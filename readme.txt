@@ -4,9 +4,9 @@ This should work on Windows XP and above.
 
 - Setup
 	In order to use this there are a few things you will need to do first.
-	The most imporatant thing to do is set the darkout path. If you do not, the script will not run a backup. You set it inside the script file. More help on this is provided in the script file.
+	The most important thing to do is set the darkout path. If you do not, the script will not run a backup. You set it inside the script file. More help on this is provided in the script file.
 	
-	To edit the script file, open the file with any text editor and the settings you can change are below where it says BEGIN USER EDIT and above where it says END USER EDIT. Just read the information in comments (commants are preceeded by ::) about each option, and then you can change the settings by editing the content after the equals sign.
+	To edit the script file, open the file with any text editor and the settings you can change are below where it says BEGIN USER EDIT and above where it says END USER EDIT. Just read the information in comments (commands are preceded by ::) about each option, and then you can change the settings by editing the content after the equals sign.
 
 - Compression
 	Compression will help reduce the size of the backups. It's a good option to save space, but it can slow your game down if compression is set too high.
