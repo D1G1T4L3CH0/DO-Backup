@@ -2,6 +2,8 @@ DO Backup
 Description: Creates backups of Darkout save data. it can be set to create backups at an interval. If set to do that, just leave the script running while you play the game.
 This should work on Windows XP and above.
 
+In the following, references to the "script file" or just the "script" are relating to "dobackup.cmd".
+
 - Setup
 	In order to use this there are a few things you will need to do first.
 	The most important thing to do is set the darkout path. If you do not, the script will not run a backup. You set it inside the script file. More help on this is provided in the script file.
@@ -19,3 +21,5 @@ This should work on Windows XP and above.
 - Backup Intervals
 	You may set a backup interval in the script in order to tell the script you want it to backup every x seconds. If you set it to 0 (zero seconds) the script will only run a backup once, and then quit. More help on this is provided in the script file.
 
+- Low Priority Mode
+	Running in low priority gives the game and other software that's running, more priority for system usage. Use it if the backups slow the game down. If you would prefer to run backups in low priority mode, run "low-priority.cmd" instead of "dobackup.cmd".
