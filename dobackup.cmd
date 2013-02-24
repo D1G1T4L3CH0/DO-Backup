@@ -23,12 +23,17 @@ set backup_interval=0
 
 :: Set the title.
 title DO Backup
+SETLOCAL ENABLEDELAYEDEXPANSION
 
 :: Make sure the registry value exists.
 REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal > nul
 if "%ERRORLEVEL%" == "1" goto cant_find_docs
 :: Get the registry value data. Put it into %documents_path%.
-for /f "tokens=2* skip=2 delims= " %%x in ('REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal') do set documents_path=%%y
+for /f "tokens=2* skip=2" %%x in ('REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal') do set documents_path=%%y
+:: For Windows prior to Vista.
+:: Yes this is ugly. It just replaces %USERPROFILE% in the documents_path variable with the expanded variable of the same name.
+set documents_path=!documents_path:%%USERPROFILE%%=%USERPROFILE%!
+:: see if it exists.
 if not exist "%documents_path%" goto cant_find_docs
 
 :: Lets make sure we are in the script's directory.
