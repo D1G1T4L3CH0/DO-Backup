@@ -18,7 +18,7 @@ set mode=3
 
 :: Compression level. Settings are 1 through 9. 9 being the highest. Keep in mind, while it's compressing, CPU usage goes up and could cause your game to slow down.
 :: This has no effect if 7za.exe is not found in the same directory as this script. Compression will not be used, the script will simply copy the files.
-set compression_level=9
+set compression_level=1
 
 :: Set the backup interval in seconds. Default is 0 (disabled).
 :: This will not save your game for you. You will still need to save your game while playing, at least as often as the interval is set for.
@@ -33,7 +33,7 @@ set ab_check_interval=10
 :: Auto Backup Wait Time
 :: Set this to the time in seconds you want to wait for the game to save the files before continuing with the backup. This should be set to longer than it takes the game to complete a save operation.
 :: Do not save your game more often than this. If you do, the script may try to backup your saves while the game is writing data to them.
-set ab_wait_time=60
+set ab_wait_time=30
 
 :: Backup Limits (not implemented yet)
 :: 1 = Don't save multiple copies. | 2 = Save multiple copies. backups will contain the time and date in the name.
@@ -63,11 +63,11 @@ if not exist "%documents_path%" goto cant_find_docs
 :: Lets make sure we are in the script's directory.
 pushd "%~dp0"
 :: Make the backups subdirectory if it doesn't already exist.
-if not exist backups mkdir backups
+if not exist "%documents_path%\My Games\Darkout\backups" mkdir "%documents_path%\My Games\Darkout\backups"
 if not exist 7za.exe (
 	:: Only create these directories if compression is not used.
-	if not exist backups\characters mkdir backups\Worlds
-	if not exist backups\config mkdir backups\Players
+	if not exist "%documents_path%\My Games\Darkout\backups\Worlds" mkdir "%documents_path%\My Games\Darkout\backups\Worlds"
+	if not exist "%documents_path%\My Games\Darkout\backups\Players" mkdir "%documents_path%\My Games\Darkout\backups\Players"
 	:: Create text files to remind where to restore the files.
 REM 	echo The .wrld files here should be restored to the root of the Darkout installation directory. Example: C:\Program files\Darkout > "backups\HOW TO RESTORE.TXT"
 REM 	echo The files in the "characters" directory should be restored to the directory: %APPDATA%\ALLGRAF\DARKOUT\journalData >> "backups\HOW TO RESTORE.TXT"
@@ -138,9 +138,9 @@ goto :EOF
 	echo Backing up...
 	if exist 7za.exe (
 		:: Compress the backup if 7za.exe was found in the current directory.
-		if %backup_world% EQU 1 7za a -mx%compression_level% -t7z -y backups\worlds.7z "%documents_path%\My Games\Darkout\Worlds\*"
-		if %backup_characters% EQU 1 7za a -mx%compression_level% -t7z -y backups\players.7z "%documents_path%\My Games\Darkout\Players\*"
-		if %backup_config% EQU 1 7za a -mx%compression_level% -t7z -y backups\config.7z "%documents_path%\My Games\Darkout\*.*"
+		if %backup_world% EQU 1 7za a -mx%compression_level% -t7z -y "%documents_path%\My Games\Darkout\backups\worlds.7z" "%documents_path%\My Games\Darkout\Worlds\*"
+		if %backup_characters% EQU 1 7za a -mx%compression_level% -t7z -y "%documents_path%\My Games\Darkout\backups\players.7z" "%documents_path%\My Games\Darkout\Players\*"
+		if %backup_config% EQU 1 7za a -mx%compression_level% -t7z -y "%documents_path%\My Games\Darkout\backups\config.7z" "%documents_path%\My Games\Darkout\*.*"
 	) else (
 		:: Just copy the files if compression is not wanted.
 		if %backup_world% EQU 1 copy /y "%documents_path%\My Games\Darkout\Worlds\*" backups\Worlds
