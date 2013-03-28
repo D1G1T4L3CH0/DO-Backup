@@ -14,11 +14,17 @@ set backup_config=0
 :: Normal: In this mode the script will only backup one time and then quit.
 :: Interval: This mode will backup at a set interval.
 :: Auto: This mode will automatically backup the saves when it detects a change in the save files. Example; when you save your game, the save files will have changed and therefore also initiate a backup.
-set mode=3
+set mode=1
 
-:: Compression level. Settings are 1 through 9. 9 being the highest. Keep in mind, while it's compressing, CPU usage goes up and could cause your game to slow down.
+:: Compression. Keep in mind, while it's compressing, CPU usage goes up and could cause your game to slow down. A lower compression level can help this.
 :: This has no effect if 7za.exe is not found in the same directory as this script. Compression will not be used, the script will simply copy the files.
-set compression_level=1
+:: Set to 1 to enable compression or 0 to disable it.
+set compression=1
+:: Compression Level. Valid values: 0, 1, 3, 5, 7, 9
+:: A value of 0 is copy mode and does not compress at all. 9 is the highest compression level. Looks at http://www.dotnetperls.com/7-zip-examples for more information.
+set c_level=1
+:: Archive Type. Valid values: 7z, gzip, zip, bzip2, tar, iso, udf
+set c_archive_type=7z
 
 :: Set the backup interval in seconds. Default is 0 (disabled).
 :: This will not save your game for you. You will still need to save your game while playing, at least as often as the interval is set for.
@@ -35,11 +41,10 @@ set ab_check_interval=10
 :: Do not save your game more often than this. If you do, the script may try to backup your saves while the game is writing data to them.
 set ab_wait_time=30
 
-:: Backup Limits (not implemented yet)
-:: 1 = Don't save multiple copies. | 2 = Save multiple copies. backups will contain the time and date in the name.
-set overwrite_backups=
-:: If overwrite_backups is set to 1, this option is ignored. Limit the number of backups the script will keep. If the number of backups is more than this number, the oldest ones will be deleted first.
-set num_backups=
+:: Backup Limits
+:: Limit the number of backups the script will keep. If the number of backups is more than or equal to this number, the oldest ones will be deleted first.
+:: Set to 1 if you don't want multiple backups.
+set num_backups=5
 
 :: ** END USER EDIT ** ::
 :: ! DO NOT EDIT BELOW THIS LINE ! ::
@@ -59,24 +64,15 @@ for /f "tokens=2* skip=2" %%x in ('REG QUERY "HKCU\Software\Microsoft\Windows\Cu
 set documents_path=!documents_path:%%USERPROFILE%%=%USERPROFILE%!
 :: see if it exists.
 if not exist "%documents_path%" goto cant_find_docs
+set darkout_saves_path=%documents_path%\My Games\Darkout
+if not exist "%documents_path%\My Games\Darkout" goto cant_find_darkout_saves
+set backups_path=%documents_path%\My Games\Darkout\backups
 
 :: Lets make sure we are in the script's directory.
 pushd "%~dp0"
+
 :: Make the backups subdirectory if it doesn't already exist.
-if not exist "%documents_path%\My Games\Darkout\backups" mkdir "%documents_path%\My Games\Darkout\backups"
-if not exist 7za.exe (
-	:: Only create these directories if compression is not used.
-	if not exist "%documents_path%\My Games\Darkout\backups\Worlds" mkdir "%documents_path%\My Games\Darkout\backups\Worlds"
-	if not exist "%documents_path%\My Games\Darkout\backups\Players" mkdir "%documents_path%\My Games\Darkout\backups\Players"
-	:: Create text files to remind where to restore the files.
-REM 	echo The .wrld files here should be restored to the root of the Darkout installation directory. Example: C:\Program files\Darkout > "backups\HOW TO RESTORE.TXT"
-REM 	echo The files in the "characters" directory should be restored to the directory: %APPDATA%\ALLGRAF\DARKOUT\journalData >> "backups\HOW TO RESTORE.TXT"
-REM 	echo The files in th "config" directory should be restored to the directory: %APPDATA%\ALLGRAF\DARKOUT\common >> "backups\HOW TO RESTORE.TXT"
-) else (
-	:: Create text files to remind where to restore the files.
-REM 	echo The file "worlds.7z" should be extracted to the root of the Darkout installation directory. Example: C:\Program files\Darkout > "backups\HOW TO RESTORE.TXT"
-REM 	echo The files "characters.7z" and "config.7z" should be extracted to the directory: %APPDATA%\ALLGRAF\DARKOUT >> "backups\HOW TO RESTORE.TXT"
-)
+if not exist "%backups_path%" mkdir "%backups_path%"
 
 if %mode% LEQ 0 call :mode_not_set
 if %mode% EQU 1 call :backup
@@ -121,8 +117,15 @@ goto :interval_backup
 :makehash
 	:: Make a sloppy hash of the file information for all the files in Players and Worlds. This probably isn't the best way, but it doesn't require any third party application.
 	set hash_now=
-	for %%X in ("%documents_path%\My Games\Darkout\Worlds\*") do set hash_now=%%~tzX!hash_now!
-	for %%X in ("%documents_path%\My Games\Darkout\Players\*") do set hash_now=%%~tzX!hash_now!
+	for %%X in ("%darkout_saves_path%\Worlds\*") do set hash_now=%%~tzX!hash_now!
+	for %%X in ("%darkout_saves_path%\Players\*") do set hash_now=%%~tzX!hash_now!
+goto :EOF
+
+:make_timestamp
+	for /f "tokens=1-3 delims=:." %%a in ("%time%") do set t=%%a.%%b.%%c
+	for /f "tokens=2-4 delims=/ " %%a in ("%date%") do set d=%%c-%%a-%%b
+	if "%t:~0,1%" EQU " " set t=%t: =0%
+	set timestamp=%d%_%t%
 goto :EOF
 
 :wait
@@ -135,17 +138,44 @@ for /l %%x in (%1,-1,1) do (
 goto :EOF
 
 :backup
+	call :backup_limit_cleanup
+	call :make_timestamp
+	mkdir "%backups_path%\%timestamp%"
+	set c_parms_front=a -mx%c_level% -t%c_archive_type% -y "%backups_path%\%timestamp%
 	echo Backing up...
-	if exist 7za.exe (
+	if not exist 7za.exe set compression=0
+	if %compression% EQU 1 (
 		:: Compress the backup if 7za.exe was found in the current directory.
-		if %backup_world% EQU 1 7za a -mx%compression_level% -t7z -y "%documents_path%\My Games\Darkout\backups\worlds.7z" "%documents_path%\My Games\Darkout\Worlds\*"
-		if %backup_characters% EQU 1 7za a -mx%compression_level% -t7z -y "%documents_path%\My Games\Darkout\backups\players.7z" "%documents_path%\My Games\Darkout\Players\*"
-		if %backup_config% EQU 1 7za a -mx%compression_level% -t7z -y "%documents_path%\My Games\Darkout\backups\config.7z" "%documents_path%\My Games\Darkout\*.*"
+		if %backup_world% EQU 1 (
+			7za %c_parms_front%\worlds.%c_archive_type%" "%darkout_saves_path%\Worlds\*" )
+		if %backup_characters% EQU 1 (
+			7za %c_parms_front%\players.%c_archive_type%" "%darkout_saves_path%\Players\*" )
+		if %backup_config% EQU 1 (
+			7za %c_parms_front%\config.%c_archive_type%" "%darkout_saves_path%\*.*" )
 	) else (
-		:: Just copy the files if compression is not wanted.
-		if %backup_world% EQU 1 copy /y "%documents_path%\My Games\Darkout\Worlds\*" backups\Worlds
-		if %backup_characters% EQU 1 copy /y "%documents_path%\My Games\Darkout\Players\*" backups\Players\
-		if %backup_config% EQU 1 copy /y "%documents_path%\My Games\Darkout\*.*" backups\
+		if not exist "%backups_path%\%timestamp%\Worlds" mkdir "%backups_path%\%timestamp%\Worlds"
+		if not exist "%backups_path%\%timestamp%\Players" mkdir "%backups_path%\%timestamp%\Players"
+		:: Just copy the files.
+		if %backup_world% EQU 1 copy /y "%darkout_saves_path%\Worlds\*" "%backups_path%\%timestamp%\Worlds\"
+		if %backup_characters% EQU 1 copy /y "%darkout_saves_path%\Players\*" "%backups_path%\%timestamp%\Players\"
+		if %backup_config% EQU 1 copy /y "%darkout_saves_path%\*.*" "%backups_path%\%timestamp%\"
+	)
+goto :EOF
+
+:backup_limit_cleanup
+	set cur_num_backups=0
+	:: Count the number of directories (backups).
+	for /d %%x in ("%backups_path%\*") do set /a cur_num_backups+=1
+	
+	if %cur_num_backups% GEQ %num_backups% (
+		:: Set the number of backups to be deleted.
+		set /a del_num=cur_num_backups-num_backups+1
+		:: Delete the backups, oldest first.
+		for /d %%x in ("%backups_path%\*") do (
+			set /a del_num-=1
+			rmdir /q /s "%%x">nul
+			if !del_num! EQU 0 goto :EOF
+		)
 	)
 goto :EOF
 
@@ -159,6 +189,20 @@ goto :EOF
 :cant_find_docs
 	cls
 	echo It appears the script is unable to locate your Documents directory. The script cannot run without it. Please contact me (D1G1T4L3CH0) d1g1t4l@boun.cr with the following information. Thanks!
+	echo.
+	echo Please send the information below to: d1g1t4l@boun.cr
+	ver
+	echo documents_path=%documents_path%
+	echo CD=%cd%
+	echo script=%0
+	echo.
+	echo Press any key to close...
+	pause>nul
+goto :EOF
+
+:cant_find_darkout_saves
+	cls
+	echo It appears the script is unable to locate your Darkout Saves directory. The script cannot run without it. This could be that you haven't run the game yet, or there is some other problem, not related to the script. However there is a small chance it's related to the script and if you believe that's the case, please contact me (D1G1T4L3CH0) d1g1t4l@boun.cr with the following information. Thanks!
 	echo.
 	echo Please send the information below to: d1g1t4l@boun.cr
 	ver
