@@ -1,58 +1,13 @@
 @echo off
-
-:: ** START USER EDIT ** ::
-
-:: What to backup. Choose here what you would like to backup.
-:: [False: 0 | True: 1] Defaults are world=1, characters=1, config=0
-set backup_world=1
-set backup_characters=1
-set backup_config=0
-
-:: Mode
-:: Set the operating mode of the script here.
-:: 1: Normal, 2: Interval, 3: Auto
-:: Normal: In this mode the script will only backup one time and then quit.
-:: Interval: This mode will backup at a set interval.
-:: Auto: This mode will automatically backup the saves when it detects a change in the save files. Example; when you save your game, the save files will have changed and therefore also initiate a backup.
-set mode=1
-
-:: Compression. Keep in mind, while it's compressing, CPU usage goes up and could cause your game to slow down. A lower compression level can help this.
-:: This has no effect if 7za.exe is not found in the same directory as this script. Compression will not be used, the script will simply copy the files.
-:: Set to 1 to enable compression or 0 to disable it.
-set compression=1
-:: Compression Level. Valid values: 0, 1, 3, 5, 7, 9
-:: A value of 0 is copy mode and does not compress at all. 9 is the highest compression level. Looks at http://www.dotnetperls.com/7-zip-examples for more information.
-set c_level=1
-:: Archive Type. Valid values: 7z, gzip, zip, bzip2, tar, iso, udf
-set c_archive_type=7z
-
-:: Set the backup interval in seconds. Default is 0 (disabled).
-:: This will not save your game for you. You will still need to save your game while playing, at least as often as the interval is set for.
-set backup_interval=300
-
-:: Auto Backups
-:: Automatic backups happen when the script detects some files (players or worlds) have changed. This means that when you choose "save your game" in game, you will also be initializing a backup at the same time. Of course the script will wait a set time before it backs up the files to give the game enough time to fully finish writing the save files. 
-:: "backup_interval" above must be set to zero.
-:: Auto Backup Check Interval
-:: Set this to the time in seconds you want the script to check for changed files.
-set ab_check_interval=10
-:: Auto Backup Wait Time
-:: Set this to the time in seconds you want to wait for the game to save the files before continuing with the backup. This should be set to longer than it takes the game to complete a save operation.
-:: Do not save your game more often than this. If you do, the script may try to backup your saves while the game is writing data to them.
-set ab_wait_time=30
-
-:: Backup Limits
-:: Limit the number of backups the script will keep. If the number of backups is more than or equal to this number, the oldest ones will be deleted first.
-:: Set to 1 if you don't want multiple backups.
-set num_backups=5
-
-:: ** END USER EDIT ** ::
-:: ! DO NOT EDIT BELOW THIS LINE ! ::
-
-
 :: Set the title.
 title DO Backup
 SETLOCAL ENABLEDELAYEDEXPANSION
+
+:: Load the config file.
+for /f "tokens=1,2 delims==" %%x in (config.ini) do (
+	set option=%%x
+	set !option!=%%y
+)
 
 :: Make sure the registry value exists.
 REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal > nul
@@ -138,7 +93,7 @@ for /l %%x in (%1,-1,1) do (
 goto :EOF
 
 :backup
-	call :backup_limit_cleanup
+	if not "%num_backups%" EQU "*" call :backup_limit_cleanup
 	call :make_timestamp
 	mkdir "%backups_path%\%timestamp%"
 	set c_parms_front=a -mx%c_level% -t%c_archive_type% -y "%backups_path%\%timestamp%
