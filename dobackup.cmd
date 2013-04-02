@@ -80,8 +80,8 @@ goto :interval_backup
 :makehash
 	:: Make a sloppy hash of the file information for all the files in Players and Worlds. This probably isn't the best way, but it doesn't require any third party application.
 	set hash_now=
-	for %%X in ("%darkout_saves_path%\Worlds\*") do set hash_now=%%~tzX!hash_now!
-	for %%X in ("%darkout_saves_path%\Players\*") do set hash_now=%%~tzX!hash_now!
+	for %%x in ("%darkout_saves_path%\Worlds") do set hash_now=%%~tzx
+	for %%x in ("%darkout_saves_path%\Players") do set hash_now=%%~tzx!hash_now!
 goto :EOF
 
 :make_timestamp
