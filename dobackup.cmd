@@ -9,6 +9,14 @@ for /f "tokens=1,2 delims==" %%x in (config.ini) do (
 	set !option!=%%y
 )
 
+:: TODO: Need to do some checks here to make sure the config was edited properly.
+
+:: Ask for mode if it was set to 0.
+if %mode% EQU 0 (
+	echo Mode was set to interactive. Please choose. 1=Normal, 2=Interval, 3=Auto
+	set /p mode=Mode? ^(1, 2, 3^): 
+)
+
 :: Make sure the registry value exists.
 REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal > nul
 if "%ERRORLEVEL%" == "1" goto cant_find_docs
