@@ -17,19 +17,9 @@ if %mode% EQU 0 (
 	set /p mode=Mode? ^(1, 2, 3^): 
 )
 
-:: Make sure the registry value exists.
-REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal > nul
+call :get_mydocs
 if "%ERRORLEVEL%" == "1" goto cant_find_docs
-:: Get the registry value data. Put it into %documents_path%.
-for /f "tokens=2* skip=2" %%x in ('REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal') do set documents_path=%%y
-:: For Windows prior to Vista.
-:: Yes this is ugly. It just replaces %USERPROFILE% in the documents_path variable with the expanded variable of the same name.
-set documents_path=!documents_path:%%USERPROFILE%%=%USERPROFILE%!
-:: see if it exists.
-if not exist "%documents_path%" goto cant_find_docs
-set darkout_saves_path=%documents_path%\My Games\Darkout
-if not exist "%documents_path%\My Games\Darkout" goto cant_find_darkout_saves
-set backups_path=%documents_path%\My Games\Darkout\backups
+if "%ERRORLEVEL%" == "2" goto cant_find_darkout_saves
 
 :: Lets make sure we are in the script's directory.
 pushd "%~dp0"
@@ -102,27 +92,37 @@ goto :EOF
 
 :backup
 	if not "%num_backups%" EQU "*" call :backup_limit_cleanup
+
 	call :make_timestamp
 	mkdir "%backups_path%\%timestamp%"
 	set c_parms_front=a -mx%c_level% -t%c_archive_type% -y "%backups_path%\%timestamp%
+
 	echo Backing up...
 	if not exist 7za.exe set compression=0
 	if %compression% EQU 1 (
-		:: Compress the backup if 7za.exe was found in the current directory.
-		if %backup_world% EQU 1 (
-			7za %c_parms_front%\worlds.%c_archive_type%" "%darkout_saves_path%\Worlds\*" )
-		if %backup_characters% EQU 1 (
-			7za %c_parms_front%\players.%c_archive_type%" "%darkout_saves_path%\Players\*" )
-		if %backup_config% EQU 1 (
-			7za %c_parms_front%\config.%c_archive_type%" "%darkout_saves_path%\*.*" )
+		:: Archive the backup if 7za.exe was found in the current directory.
+		call :archive
 	) else (
-		if not exist "%backups_path%\%timestamp%\Worlds" mkdir "%backups_path%\%timestamp%\Worlds"
-		if not exist "%backups_path%\%timestamp%\Players" mkdir "%backups_path%\%timestamp%\Players"
 		:: Just copy the files.
-		if %backup_world% EQU 1 copy /y "%darkout_saves_path%\Worlds\*" "%backups_path%\%timestamp%\Worlds\"
-		if %backup_characters% EQU 1 copy /y "%darkout_saves_path%\Players\*" "%backups_path%\%timestamp%\Players\"
-		if %backup_config% EQU 1 copy /y "%darkout_saves_path%\*.*" "%backups_path%\%timestamp%\"
+		call :cp
 	)
+goto :EOF
+
+:cp
+	if not exist "%backups_path%\%timestamp%\Worlds" mkdir "%backups_path%\%timestamp%\Worlds"
+	if not exist "%backups_path%\%timestamp%\Players" mkdir "%backups_path%\%timestamp%\Players"
+	if %backup_world% EQU 1 copy /y "%darkout_saves_path%\Worlds\*" "%backups_path%\%timestamp%\Worlds\"
+	if %backup_characters% EQU 1 copy /y "%darkout_saves_path%\Players\*" "%backups_path%\%timestamp%\Players\"
+	if %backup_config% EQU 1 copy /y "%darkout_saves_path%\*.*" "%backups_path%\%timestamp%\"
+goto :EOF
+
+:archive
+	if %backup_world% EQU 1 (
+		7za %c_parms_front%\worlds.%c_archive_type%" "%darkout_saves_path%\Worlds\*" )
+	if %backup_characters% EQU 1 (
+		7za %c_parms_front%\players.%c_archive_type%" "%darkout_saves_path%\Players\*" )
+	if %backup_config% EQU 1 (
+		7za %c_parms_front%\config.%c_archive_type%" "%darkout_saves_path%\*.*" )
 goto :EOF
 
 :backup_limit_cleanup
@@ -142,6 +142,22 @@ goto :EOF
 	)
 goto :EOF
 
+:get_mydocs
+	:: Make sure the registry value exists.
+	REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal > nul
+	if "%ERRORLEVEL%" == "1" exit /b 1
+	:: Get the registry value data. Put it into %documents_path%.
+	for /f "tokens=2* skip=2" %%x in ('REG QUERY "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Personal') do set documents_path=%%y
+	:: For Windows prior to Vista.
+	:: Yes this is ugly. It just replaces %USERPROFILE% in the documents_path variable with the expanded variable of the same name.
+	set documents_path=!documents_path:%%USERPROFILE%%=%USERPROFILE%!
+	:: see if it exists.
+	if not exist "%documents_path%" exit /b 1
+	set darkout_saves_path=%documents_path%\My Games\Darkout
+	if not exist "%documents_path%\My Games\Darkout" exit /b 2
+	set backups_path=%documents_path%\My Games\Darkout\backups
+goto :EOF
+
 :mode_not_set
 	cls
 	echo You have not set the mode option correctly in the script. Please check.
@@ -151,28 +167,28 @@ goto :EOF
 
 :cant_find_docs
 	cls
-	echo It appears the script is unable to locate your Documents directory. The script cannot run without it. Please contact me (D1G1T4L3CH0) d1g1t4l@boun.cr with the following information. Thanks!
+	echo It appears the script is unable to locate your Documents directory. The script cannot run without it. A file names "error.log" has been created in the script directory located at:
+	echo %~dp0
 	echo.
-	echo Please send the information below to: d1g1t4l@boun.cr
-	ver
-	echo documents_path=%documents_path%
-	echo CD=%cd%
-	echo script=%0
-	echo.
+	echo Please contact me (D1G1T4L3CH0) d1g1t4l@boun.cr with the error.log file. Thanks!
+	ver> error.log
+	echo documents_path=%documents_path%>> error.log
+	echo CD=%cd%>> error.log
+	echo script=%0>> error.log
 	echo Press any key to close...
 	pause>nul
 goto :EOF
 
 :cant_find_darkout_saves
 	cls
-	echo It appears the script is unable to locate your Darkout Saves directory. The script cannot run without it. This could be that you haven't run the game yet, or there is some other problem, not related to the script. However there is a small chance it's related to the script and if you believe that's the case, please contact me (D1G1T4L3CH0) d1g1t4l@boun.cr with the following information. Thanks!
+	echo It appears the script is unable to locate your Darkout Saves directory. The script cannot run without it. This could be that you haven't run the game yet, or there is some other problem, not related to the script. A file names "error.log" has been created in the script directory located at:
+	echo %~dp0
 	echo.
-	echo Please send the information below to: d1g1t4l@boun.cr
-	ver
-	echo documents_path=%documents_path%
-	echo CD=%cd%
-	echo script=%0
-	echo.
+	echo Please contact me (D1G1T4L3CH0) d1g1t4l@boun.cr with the error.log file. Thanks!
+	ver> error.log
+	echo documents_path=%documents_path%>> error.log
+	echo CD=%cd%>> error.log
+	echo script=%0>> error.log
 	echo Press any key to close...
 	pause>nul
 goto :EOF
