@@ -4,12 +4,20 @@ title DO Backup
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 :: Load the config file.
-for /f "tokens=1,2 delims==" %%x in (config.ini) do (
+set config_file=%~dp0config.ini
+if not exist "%config_file%" goto no_config_found
+for /f "usebackq tokens=1,2 delims==" %%x in ("%config_file%") do (
 	set option=%%x
 	set !option!=%%y
 )
 
-:: TODO: Need to do some checks here to make sure the config was edited properly.
+:: TODO:
+:: - Need to do some checks here to make sure the config was edited properly.
+
+:: KNOWN ISSUES
+:: - c_level is not checked to see if it's within acceptable range for the specific archive
+::   application being used. Maybe there needs to be separate variables for the different
+::   applications.
 
 :: Ask for mode if it was set to 0.
 if %mode% EQU 0 (
@@ -18,14 +26,23 @@ if %mode% EQU 0 (
 )
 
 call :get_mydocs
-if "%ERRORLEVEL%" == "1" goto cant_find_docs
-if "%ERRORLEVEL%" == "2" goto cant_find_darkout_saves
+if %ERRORLEVEL% EQU 1 goto cant_find_docs
+if %ERRORLEVEL% EQU 2 goto cant_find_darkout_saves
 
 :: Lets make sure we are in the script's directory.
 pushd "%~dp0"
 
 :: Make the backups subdirectory if it doesn't already exist.
 if not exist "%backups_path%" mkdir "%backups_path%"
+
+:: set archive application to use
+if %compression% EQU 1 (
+	call :is_installed_sevenzip
+	call :is_installed_winrar
+	if exist "7za.exe" set archive_application=1
+) else (
+	set compression=0
+)
 
 if %mode% LEQ 0 call :mode_not_set
 if %mode% EQU 1 call :backup
@@ -98,7 +115,7 @@ goto :EOF
 	set c_parms_front=a -mx%c_level% -t%c_archive_type% -y "%backups_path%\%timestamp%
 
 	echo Backing up...
-	if not exist 7za.exe set compression=0
+::	if not exist 7za.exe set compression=0
 	if %compression% EQU 1 (
 		:: Archive the backup if 7za.exe was found in the current directory.
 		call :archive
@@ -117,12 +134,32 @@ goto :EOF
 goto :EOF
 
 :archive
-	if %backup_world% EQU 1 (
-		7za %c_parms_front%\worlds.%c_archive_type%" "%darkout_saves_path%\Worlds\*" )
-	if %backup_characters% EQU 1 (
-		7za %c_parms_front%\players.%c_archive_type%" "%darkout_saves_path%\Players\*" )
-	if %backup_config% EQU 1 (
-		7za %c_parms_front%\config.%c_archive_type%" "%darkout_saves_path%\*.*" )
+	if %archive_application% EQU 1 (
+		if %backup_world% EQU 1 (
+			7za %c_parms_front%\worlds.%c_archive_type%" "%darkout_saves_path%\Worlds\*" )
+		if %backup_characters% EQU 1 (
+			7za %c_parms_front%\players.%c_archive_type%" "%darkout_saves_path%\Players\*" )
+		if %backup_config% EQU 1 (
+			7za %c_parms_front%\config.%c_archive_type%" "%darkout_saves_path%\*.*" )
+	)
+	if %archive_application% EQU 2 (
+		set "path=%path%;%sevenzip_install_path%"
+		if %backup_world% EQU 1 (
+			7z %c_parms_front%\worlds.%c_archive_type%" "%darkout_saves_path%\Worlds\*" )
+		if %backup_characters% EQU 1 (
+			7z %c_parms_front%\players.%c_archive_type%" "%darkout_saves_path%\Players\*" )
+		if %backup_config% EQU 1 (
+			7z %c_parms_front%\config.%c_archive_type%" "%darkout_saves_path%\*.*" )
+	)
+	if %archive_application% EQU 3 (
+		set "path=%path%;%winrar_install_path%"
+		if %backup_world% EQU 1 (
+			rar a -m%c_level% -s -ep "%backups_path%\%timestamp%\worlds.rar" "%darkout_saves_path%\Worlds\*")
+		if %backup_characters% EQU 1 (
+			rar a -m%c_level% -s -ep "%backups_path%\%timestamp%\players.rar" "%darkout_saves_path%\Players\*")
+		if %backup_config% EQU 1 (
+			rar a -m%c_level% -s -ep "%backups_path%\%timestamp%\config.rar" "%darkout_saves_path%\*.*")
+	)
 goto :EOF
 
 :backup_limit_cleanup
@@ -156,6 +193,37 @@ goto :EOF
 	set darkout_saves_path=%documents_path%\My Games\Darkout
 	if not exist "%documents_path%\My Games\Darkout" exit /b 2
 	set backups_path=%documents_path%\My Games\Darkout\backups
+goto :EOF
+
+:is_installed_sevenzip
+	set sevenzip_install_path=
+	for /f "tokens=1,2*" %%x in ('reg query HKLM\Software\7-Zip /v path 2^>nul') do (
+		if /i "%%x" EQU "path" if exist "%%z\7z.exe" set sevenzip_install_path=%%z
+	)
+	if "%sevenzip_install_path%" EQU "" (
+		for /f "tokens=1,2*" %%x in ('reg query HKCU\Software\7-Zip /v path 2^>nul') do (
+			if /i "%%x" EQU "path" if exist "%%z\7z.exe" set sevenzip_install_path=%%z
+		)
+	)
+	if "%sevenzip_install_path%" EQU "" goto :EOF
+	set archive_application=2
+goto :EOF
+
+:is_installed_winrar
+	set winrar_install_path=
+	for /f "tokens=1,2*" %%x in ('reg query HKLM\Software\WinRAR /v exe32 2^>nul') do (
+		if /i "%%x" EQU "exe32" if exist "%%~dpz\rar.exe" set winrar_install_path=%%~dpz
+	)
+	if "%winrar_install_path%" EQU "" goto :EOF
+	set archive_application=3
+goto :EOF
+
+:no_config_found
+	echo No configuration file was found. It should have come in the archive along with the script. The script needs this file to know all of the options. the filename is: config.ini
+	echo Please move the file next to the script and run again.
+	echo.
+	echo Press any key to exit...
+	pause>nul
 goto :EOF
 
 :mode_not_set
